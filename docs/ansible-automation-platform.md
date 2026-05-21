@@ -548,5 +548,4 @@ Disable or remove any AutoShare rules configured for the Ansible integration.
 |-------------|-------------------|--------|-------------------|
 | 2.7 | 1.3.0+ | 3.12+ | EDA Gateway |
 | 2.6 | 1.3.0+ | 3.12+ | EDA Gateway |
-| 2.5 | 1.2.x | 3.9+ | Direct webhook + custom headers |
-| ≤2.4 | 1.1.x | 3.8+ | Direct webhook + custom headers |
+| 2.5 | 1.2.x | 3.12+ | Direct webhook + custom headers |
