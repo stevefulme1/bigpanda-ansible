@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+# Copyright 2024 Red Hat
+# GNU General Public License v3.0+
+# (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """BigPanda webhook event source for Event-Driven Ansible.
 
 Processes BigPanda alert webhook payloads delivered through the
@@ -12,7 +18,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r"""
 ---
-module: bigpanda_webhook
+name: bigpanda_webhook
 short_description: Process BigPanda alert webhooks via EDA Gateway
 description:
   - Processes BigPanda webhook payloads received through the EDA Gateway event stream.
@@ -56,7 +62,7 @@ EXAMPLES = r"""
       condition: event.payload.status == "ok"
       action:
         debug:
-          msg: "Alert {{ event.payload.alert_id | default('unknown') }} resolved"
+          msg: "Incident {{ event.payload.id | default('unknown') }} resolved"
 """
 
 import asyncio
@@ -85,7 +91,10 @@ async def eda_event(event: dict, queue: asyncio.Queue, args: dict) -> None:
     payload = event.get("payload", event)
 
     if event_filter:
-        status = payload.get("status", "")
+        status = (
+            payload.get("status")
+            or payload.get("incident", {}).get("status", "")
+        )
         if status not in event_filter:
             return
 

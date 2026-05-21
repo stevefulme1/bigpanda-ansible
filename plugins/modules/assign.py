@@ -1,7 +1,9 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Copyright 2023 BigPanda
 # GNU General Public License v3.0+
 # (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 from __future__ import absolute_import, division, print_function
 
@@ -11,7 +13,7 @@ DOCUMENTATION = """
 author:
   - Juan Cardozo (@JuanDCardozo)
 description:
-  - This module assigns a user to be responsible for a BigPanda incident by providing the incident ID and the user"s ID.
+  - This module assigns a user to be responsible for a BigPanda incident by providing the incident ID and the user's ID.
 module: assign
 options:
   environment_id:
@@ -47,26 +49,22 @@ RETURN = """
 changed:
   description: Indicates if the user assignment was successful.
   type: bool
-  returned: true/false
+  returned: always
   sample: true
 result:
   description: The response from the BigPanda server.
   type: str
-  returned: BigPanda"s Response
+  returned: success
   sample: "User assigned successfully to the incident."
 """
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.bigpanda.incident.plugins.module_utils.bigpanda_common import (
-    require_requests,
     bigpanda_request,
 )
 
 
 def main():
-    """
-    The main function to execute the module.
-    """
     module = AnsibleModule(
         argument_spec=dict(
             environment_id=dict(type="str", required=True),
@@ -74,40 +72,18 @@ def main():
             incident_id=dict(type="str", required=True),
             assignee_id=dict(type="str", required=True),
         ),
-        supports_check_mode=True
+        supports_check_mode=True,
     )
 
-    try:
-        environment_id = module.params["environment_id"]
-        api_token = module.params["api_token"]
-        incident_id = module.params["incident_id"]
-        assignee_id = module.params["assignee_id"]
-        module.debug("Assign User to Incident")
+    incident_id = module.params["incident_id"]
+    assignee_id = module.params["assignee_id"]
 
-        # Prepare the JSON data
-        data = {
-            "assignee": assignee_id
-        }
-
-        # Set the request headers
-        headers = {
-            "Authorization": f"Bearer {api_token}",
-        }
-
-        # Send the PUT request using the requests library
-        response = requests.put(
-            f"https://api.bigpanda.io/resources/v2.0/environments/{environment_id}/incidents/{incident_id}/assignment",
-            headers=headers,
-            json=data)
-
-        response.raise_for_status()
-        module.exit_json(changed=True, result=response.text)
-    except KeyError as e:
-        # Log any missing keys
-        module.fail_json(msg=f"Missing key: {str(e)}")
-    except Exception as e:
-        # Log any HTTP errors
-        module.fail_json(msg=f"An HTTP error occurred: {str(e)}")
+    response = bigpanda_request(
+        module, "put",
+        f"incidents/{incident_id}/assignment",
+        {"assignee": assignee_id},
+    )
+    module.exit_json(changed=True, result=response.text)
 
 
 if __name__ == "__main__":
