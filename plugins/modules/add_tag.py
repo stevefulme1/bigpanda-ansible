@@ -17,15 +17,23 @@ options:
   tag_id:
     description: The ID of the tag to update.
     required: true
+    type: str
   tag_value:
     description: The new value for the tag.
     required: true
+    type: str
   incident_id:
     description: The ID of the incident to update.
     required: true
+    type: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
+  environment_id:
+    description: The ID of the environment.
+    required: true
+    type: str
 short_description: Update a BigPanda incident tag.
 version_added: 1.0.0
 """
@@ -37,6 +45,7 @@ EXAMPLES = """
     tag_value: "NewTagValue"
     incident_id: "incident456"
     api_token: "your_api_token"
+    environment_id: "your_environment_id"
 """
 
 RETURN = """
@@ -53,8 +62,11 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from requests import HTTPError
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 def main():
@@ -64,11 +76,14 @@ def main():
             tag_id=dict(type='str', required=True),
             tag_value=dict(type='str', required=True),
             incident_id=dict(type='str', required=True),
-            api_token=dict(type='str', required=True),
+            api_token=dict(type='str', required=True, no_log=True),
             environment_id=dict(type='str', required=True),
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     tag_id = module.params['tag_id']
     tag_value = module.params['tag_value']

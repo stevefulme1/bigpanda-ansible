@@ -18,18 +18,24 @@ options:
   incident_id:
     description: The ID of the incident to split.
     required: true
+    type: str
   comment:
     description: A comment describing the split.
     required: false
+    type: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
   environment_id:
     description: The environment ID.
     required: true
+    type: str
   alert_ids:
     description: A list of alert IDs to split.
     required: true
+    type: list
+    elements: str
 short_description: Split a BigPanda incident into multiple incidents.
 version_added: 1.0.0
 """
@@ -60,8 +66,11 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from requests import HTTPError
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 def main():
@@ -70,12 +79,15 @@ def main():
         argument_spec=dict(
             environment_id=dict(type='str', required=True),
             incident_id=dict(type='str', required=True),
-            api_token=dict(type='str', required=True),
+            api_token=dict(type='str', required=True, no_log=True),
             comment=dict(type='str', required=False),
-            alert_ids=dict(type='list', required=True)
+            alert_ids=dict(type='list', required=True, elements='str')
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     environment_id = module.params['environment_id']
     incident_id = module.params['incident_id']

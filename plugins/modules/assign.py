@@ -17,15 +17,19 @@ options:
   environment_id:
     description: The ID of the environment.
     required: true
+    type: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
   incident_id:
     description: The ID of the incident to assign a user to.
     required: true
+    type: str
   assignee_id:
     description: The ID of the user to be assigned.
     required: true
+    type: str
 short_description: Assign a user to be responsible for an incident in BigPanda.
 version_added: 1.0.0
 """
@@ -53,8 +57,12 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from requests import HTTPError
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
 
 def main():
     """
@@ -63,12 +71,15 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             environment_id=dict(type="str", required=True),
-            api_token=dict(type="str", required=True),
+            api_token=dict(type="str", required=True, no_log=True),
             incident_id=dict(type="str", required=True),
             assignee_id=dict(type="str", required=True),
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     try:
         environment_id = module.params["environment_id"]

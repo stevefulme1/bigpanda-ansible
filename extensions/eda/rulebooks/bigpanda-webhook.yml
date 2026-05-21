@@ -1,14 +1,23 @@
 ---
-- name: BigPanda Webhook
+- name: BigPanda Alert Automation
   hosts: all
   sources:
-    - ansible.eda.webhook:
+    - bigpanda.incident.bigpanda_webhook:
         host: 0.0.0.0
-        port: 6000
-
+        port: 5000
   rules:
-    - name: Get BigPanda Share Information
-      condition: event.meta is defined
+    - name: Critical alert received
+      condition: event.payload.status == "critical"
+      action:
+        run_playbook:
+          name: remediate_critical.yml
+    - name: Alert resolved
+      condition: event.payload.status == "ok"
       action:
         debug:
-        
+          msg: "Alert {{ event.payload.alert_id }} resolved"
+    - name: Alert changed
+      condition: event.payload is defined
+      action:
+        debug:
+          msg: "BigPanda event received: {{ event.payload.status | default('unknown') }}"

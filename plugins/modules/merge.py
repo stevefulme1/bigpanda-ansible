@@ -17,18 +17,24 @@ options:
   incident_id:
     description: The ID of the incident to merge into.
     required: true
+    type: str
   comment:
     description: A comment describing the merge.
     required: false
+    type: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
   environment_id:
     description: The environment ID.
     required: true
+    type: str
   source_incidents:
     description: A list of incident IDs to merge.
     required: true
+    type: list
+    elements: str
 short_description: Merge multiple BigPanda incidents into one.
 version_added: 1.0.0
 """
@@ -58,8 +64,11 @@ result:
   sample: "Incidents merged successfully."
 """
 
-import requests
-from requests import HTTPError
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 from ansible.module_utils.basic import AnsibleModule
 
 
@@ -71,12 +80,15 @@ def main():
         argument_spec=dict(
             environment_id=dict(type='str', required=True),
             incident_id=dict(type='str', required=True),
-            api_token=dict(type='str', required=True),
-            source_incidents=dict(type='list', required=True),
+            api_token=dict(type='str', required=True, no_log=True),
+            source_incidents=dict(type='list', required=True, elements='str'),
             comment=dict(type='str', required=False)
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     environment_id = module.params['environment_id']
     incident_id = module.params['incident_id']

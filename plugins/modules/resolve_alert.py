@@ -15,14 +15,23 @@ description:
 module: resolve_alert
 options:
   alert_ids:
-    description: The ID of the alert to resolve.
+    description: A list of alert IDs to resolve.
     required: true
-  resolution:
-    description: The resolution message for the alert.
+    type: list
+    elements: str
+  comments:
+    description: A list of resolution comments for the alerts.
     required: false
+    type: list
+    elements: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
+  environment_id:
+    description: The ID of the environment.
+    required: true
+    type: str
 short_description: Resolve a BigPanda alert.
 version_added: 1.0.0
 """
@@ -30,9 +39,12 @@ version_added: 1.0.0
 EXAMPLES = """
 - name: Resolve an alert
   bigpanda.incident.resolve_alert:
-    alert_ids: "54321"
-    resolution: "Alert resolved."
+    alert_ids:
+      - "54321"
+    comments:
+      - "Alert resolved."
     api_token: "your_api_token"
+    environment_id: "your_environment_id"
 """
 
 RETURN = """
@@ -49,8 +61,11 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from requests import HTTPError
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 def main():
@@ -60,12 +75,15 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             environment_id=dict(type='str', required=True),
-            api_token=dict(type='str', required=True),
-            alert_ids=dict(type='list', required=True),
-            comments=dict(type='list', required=False),
+            api_token=dict(type='str', required=True, no_log=True),
+            alert_ids=dict(type='list', required=True, elements='str'),
+            comments=dict(type='list', required=False, elements='str'),
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     environment_id = module.params['environment_id']
     api_token = module.params['api_token']

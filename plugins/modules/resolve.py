@@ -17,12 +17,19 @@ options:
   incident_id:
     description: The ID of the incident to resolve.
     required: true
+    type: str
   resolution_comment:
     description: The resolution message for the incident.
     required: false
+    type: str
   api_token:
     description: The API token for authentication.
     required: true
+    type: str
+  environment_id:
+    description: The ID of the environment.
+    required: true
+    type: str
 short_description: Resolve a BigPanda incident.
 version_added: 1.0.0
 """
@@ -33,6 +40,7 @@ EXAMPLES = """
     incident_id: "12345"
     resolution_comment: "Incident resolved."
     api_token: "your_api_token"
+    environment_id: "your_environment_id"
 """
 
 RETURN = """
@@ -49,8 +57,11 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from requests import HTTPError
-import requests
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 def main():
@@ -59,10 +70,13 @@ def main():
             resolution_comment=dict(type='str', required=False),
             environment_id=dict(type='str', required=True),
             incident_id=dict(type='str', required=True),
-            api_token=dict(type='str', required=True),
+            api_token=dict(type='str', required=True, no_log=True),
         ),
         supports_check_mode=True
     )
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg="The requests Python library is required")
 
     resolution_comment = module.params['resolution_comment']
     environment_id = module.params['environment_id']
