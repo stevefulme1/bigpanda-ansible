@@ -64,12 +64,11 @@ result:
   sample: "Incidents merged successfully."
 """
 
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.bigpanda.incident.plugins.module_utils.bigpanda_common import (
+    require_requests,
+    bigpanda_request,
+)
 
 
 def main():
@@ -86,9 +85,6 @@ def main():
         ),
         supports_check_mode=True
     )
-
-    if not HAS_REQUESTS:
-        module.fail_json(msg="The requests Python library is required")
 
     environment_id = module.params['environment_id']
     incident_id = module.params['incident_id']
@@ -116,7 +112,7 @@ def main():
 
         response.raise_for_status()
         module.exit_json(changed=True, result=response.text)
-    except HTTPError as e:
+    except Exception as e:
         # Log any HTTP errors
         module.fail_json(msg=f"An HTTP error occurred: {str(e)}")
 

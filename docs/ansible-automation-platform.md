@@ -146,7 +146,7 @@ Create a rulebook that uses the `bigpanda.incident.bigpanda_webhook` source:
       condition: event.payload.status == "ok"
       action:
         debug:
-          msg: "Alert {{ event.payload.alert_id | default('unknown') }} resolved"
+          msg: "Alert {{ event.payload.id | default('unknown') }} resolved"
 ```
 
 Activate this rulebook in the EDA Controller:
@@ -419,7 +419,8 @@ Events emitted by the source contain:
   "payload": {
     "status": "critical",
     "incident_id": "inc-12345",
-    "alert_id": "alert-67890",
+    "id": "inc-12345",
+    "id": "inc-67890",
     "environment_id": "env-001",
     "event_type": "incident#new",
     "...": "full BigPanda webhook payload"

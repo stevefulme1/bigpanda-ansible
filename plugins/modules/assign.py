@@ -57,11 +57,10 @@ result:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
+from ansible_collections.bigpanda.incident.plugins.module_utils.bigpanda_common import (
+    require_requests,
+    bigpanda_request,
+)
 
 
 def main():
@@ -77,9 +76,6 @@ def main():
         ),
         supports_check_mode=True
     )
-
-    if not HAS_REQUESTS:
-        module.fail_json(msg="The requests Python library is required")
 
     try:
         environment_id = module.params["environment_id"]
@@ -109,7 +105,7 @@ def main():
     except KeyError as e:
         # Log any missing keys
         module.fail_json(msg=f"Missing key: {str(e)}")
-    except HTTPError as e:
+    except Exception as e:
         # Log any HTTP errors
         module.fail_json(msg=f"An HTTP error occurred: {str(e)}")
 

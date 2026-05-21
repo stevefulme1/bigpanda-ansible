@@ -24,7 +24,7 @@
       condition: event.payload.status == "ok"
       action:
         debug:
-          msg: "Alert {{ event.payload.alert_id | default('unknown') }} resolved"
+          msg: "Incident {{ event.payload.id | default('unknown') }} resolved"
     - name: Alert changed
       condition: event.payload is defined
       action:
