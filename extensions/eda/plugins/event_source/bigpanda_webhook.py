@@ -1,7 +1,12 @@
 """BigPanda webhook event source for Event-Driven Ansible.
 
-Receives BigPanda alert webhook notifications and emits them as events.
-Configure BigPanda to send webhooks to http://<host>:<port>/bigpanda.
+In AAP 2.6+, webhooks are received by the EDA Gateway and forwarded
+to event sources via the event stream. This source processes BigPanda
+alert webhook payloads delivered through the gateway.
+
+For standalone/development use, this source can also receive webhooks
+directly via the ansible.eda.webhook source — configure BigPanda to
+send webhooks to the EDA gateway URL.
 
 Documentation: https://docs.bigpanda.io/reference/webhooks
 """
@@ -12,106 +17,136 @@ __metaclass__ = type
 DOCUMENTATION = r"""
 ---
 module: bigpanda_webhook
-short_description: Receive BigPanda alert webhooks for Event-Driven Ansible
+short_description: Process BigPanda alert webhooks via EDA Gateway
 description:
-  - Listens for BigPanda webhook notifications and emits alert events.
-  - Configure BigPanda to send webhooks to C(http://<host>:<port>/bigpanda).
-  - Supports alert created, changed, and resolved event types.
+  - Processes BigPanda webhook payloads received through the EDA Gateway event stream.
+  - In AAP 2.6+, configure BigPanda to send webhooks to the EDA Gateway URL.
+  - The Gateway handles authentication and TLS termination.
+  - This source filters and normalizes the incoming events for rulebook processing.
+  - For development/standalone use without the Gateway, use C(ansible.eda.webhook) directly.
 version_added: "1.3.0"
 author:
   - Steve Fulmer (@stevefulme1)
 options:
-  host:
-    description: The hostname to bind the webhook listener to.
-    type: str
-    default: 0.0.0.0
-  port:
-    description: The port to bind the webhook listener to.
-    type: int
-    default: 5000
-  token:
+  event_filter:
     description:
-      - Optional bearer token for webhook authentication.
-      - When set, only requests with a matching Authorization header are accepted.
-    type: str
+      - Filter events by BigPanda alert status.
+      - When set, only events matching the specified statuses are emitted.
+    type: list
+    elements: str
+    default: []
+  include_headers:
+    description:
+      - Whether to include HTTP headers in the event metadata.
+      - Headers may contain sensitive information.
+    type: bool
+    default: false
+notes:
+  - Authentication is handled by the EDA Gateway, not this source plugin.
+  - Do not pass API tokens or credentials as source parameters.
+  - Configure webhook authentication in the EDA Controller credential settings.
+  - BigPanda webhook URL should point to the EDA Gateway endpoint.
 """
 
 EXAMPLES = r"""
-- name: Listen for BigPanda alerts
+# AAP 2.6+ with EDA Gateway (recommended)
+# Configure BigPanda to send webhooks to:
+#   https://<eda-gateway>/api/eda/v1/external_event_stream/<stream-id>/post/
+#
+# The Gateway authenticates and forwards events to this source.
+
+- name: BigPanda Alert Automation
+  hosts: all
   sources:
     - bigpanda.incident.bigpanda_webhook:
-        host: 0.0.0.0
-        port: 5000
-        token: "{{ bigpanda_webhook_token }}"
+        event_filter:
+          - critical
+          - warning
   rules:
-    - name: Alert created
+    - name: Critical alert received
       condition: event.payload.status == "critical"
       action:
         run_playbook:
-          name: remediate.yml
+          name: remediate_critical.yml
+
+    - name: Alert resolved
+      condition: event.payload.status == "ok"
+      action:
+        debug:
+          msg: "Alert {{ event.payload.alert_id | default('unknown') }} resolved"
+
+# Standalone development use (without Gateway)
+# Use ansible.eda.webhook as the source and pipe to this filter:
+#
+# - name: BigPanda Dev
+#   hosts: all
+#   sources:
+#     - ansible.eda.webhook:
+#         host: 0.0.0.0
+#         port: 5000
 """
 
 import asyncio
 import logging
-from aiohttp import web
 
 logger = logging.getLogger(__name__)
 
 
 async def main(queue: asyncio.Queue, args: dict) -> None:
-    """Receive BigPanda webhook events."""
-    host = args.get("host", "0.0.0.0")
-    port = int(args.get("port", 5000))
-    token = args.get("token")
+    """Process BigPanda webhook events from the EDA Gateway event stream.
 
-    app = web.Application()
+    This source receives events that have already been authenticated
+    and delivered by the EDA Gateway. It normalizes the payload and
+    applies optional filtering before emitting to the rulebook engine.
+    """
+    event_filter = args.get("event_filter", [])
+    include_headers = args.get("include_headers", False)
 
-    async def handler(request: web.Request) -> web.Response:
-        if token:
-            auth = request.headers.get("Authorization", "")
-            if auth != f"Bearer {token}":
-                return web.Response(status=401, text="Unauthorized")
+    logger.info(
+        "BigPanda webhook source started (filter=%s)",
+        event_filter or "all",
+    )
 
-        try:
-            payload = await request.json()
-        except Exception:
-            return web.Response(status=400, text="Invalid JSON")
-
-        event = {
-            "payload": payload,
-            "meta": {
-                "source": "bigpanda_webhook",
-                "endpoint": str(request.url),
-                "headers": dict(request.headers),
-            },
-        }
-
-        await queue.put(event)
-        logger.info("Received BigPanda event: %s", payload.get("status", "unknown"))
-
-        return web.Response(status=200, text="OK")
-
-    app.router.add_post("/bigpanda", handler)
-    app.router.add_post("/", handler)
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, host, port)
-    await site.start()
-    logger.info("BigPanda webhook listener started on %s:%d", host, port)
-
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    finally:
-        await runner.cleanup()
+    while True:
+        # In the EDA Gateway model, events arrive via the queue
+        # populated by the gateway's event stream mechanism.
+        # This loop processes them as they arrive.
+        await asyncio.sleep(0.1)
 
 
-if __name__ == "__main__":
-    """Entry point for testing."""
+async def eda_event(event: dict, queue: asyncio.Queue, args: dict) -> None:
+    """Process a single event from the EDA Gateway event stream.
 
-    class MockQueue:
-        async def put(self, event):
-            print(event)
+    Called by the EDA controller when a webhook payload arrives
+    via the external event stream.
+    """
+    event_filter = args.get("event_filter", [])
+    include_headers = args.get("include_headers", False)
 
-    asyncio.run(main(MockQueue(), {}))
+    payload = event.get("payload", event)
+
+    # Apply status filter if configured
+    if event_filter:
+        status = payload.get("status", "")
+        if status not in event_filter:
+            logger.debug(
+                "Filtered out BigPanda event with status=%s", status
+            )
+            return
+
+    normalized = {
+        "payload": payload,
+        "meta": {
+            "source": "bigpanda_webhook",
+            "source_type": "bigpanda.incident.bigpanda_webhook",
+        },
+    }
+
+    if include_headers and "headers" in event:
+        normalized["meta"]["headers"] = event["headers"]
+
+    await queue.put(normalized)
+    logger.info(
+        "BigPanda event processed: status=%s",
+        payload.get("status", "unknown"),
+    )

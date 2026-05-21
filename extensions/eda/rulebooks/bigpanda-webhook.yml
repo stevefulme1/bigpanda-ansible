@@ -1,10 +1,19 @@
 ---
+# BigPanda Alert Automation via EDA Gateway
+#
+# Prerequisites:
+#   1. Configure an External Event Stream in EDA Controller
+#   2. Point BigPanda webhook to the Gateway URL:
+#      https://<eda-gateway>/api/eda/v1/external_event_stream/<stream-id>/post/
+#   3. Configure webhook credentials in EDA Controller (not in this rulebook)
+#
 - name: BigPanda Alert Automation
   hosts: all
   sources:
     - bigpanda.incident.bigpanda_webhook:
-        host: 0.0.0.0
-        port: 5000
+        event_filter:
+          - critical
+          - warning
   rules:
     - name: Critical alert received
       condition: event.payload.status == "critical"
@@ -15,9 +24,9 @@
       condition: event.payload.status == "ok"
       action:
         debug:
-          msg: "Alert {{ event.payload.alert_id }} resolved"
+          msg: "Alert {{ event.payload.alert_id | default('unknown') }} resolved"
     - name: Alert changed
       condition: event.payload is defined
       action:
         debug:
-          msg: "BigPanda event received: {{ event.payload.status | default('unknown') }}"
+          msg: "BigPanda event: {{ event.payload.status | default('unknown') }}"
