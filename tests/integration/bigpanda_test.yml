@@ -1,3 +1,4 @@
+---
 - name: BigPanda Action Module Test
   hosts: localhost
   connection: local
